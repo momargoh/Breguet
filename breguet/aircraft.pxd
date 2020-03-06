@@ -28,7 +28,7 @@ cdef class Aircraft():
     cpdef public double qS(self)
     #    
     cpdef public double Cd(self)
-    cpdef public void auto_Cl(self)
+    cpdef public void size_Cl(self)
     #
     cpdef public double Vmp(self)
     cpdef public double Vmd(self)

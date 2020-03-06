@@ -58,7 +58,7 @@ cdef class Aircraft():
         "float: Coefficient of drag: CD = CD0 + k*CL**2"
         return self.Cd0 + self.wing.k()*self.Cl**2
 
-    cpdef public void auto_Cl(self):
+    cpdef public void size_Cl(self):
         "Automatically set Cl from start-of-cruise weight, density and VTAS"
         self.Cl = self.weightTotalSoc()/(0.5*self.rhoSoc*self.VTAS**2*self.wing.area)
     

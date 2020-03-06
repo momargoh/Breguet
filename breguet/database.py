@@ -80,7 +80,7 @@ def piperPawneeBrave(mode=1):
         cruiseSpeed=knot2mps(113),
         rangeMax=772e3,
         model="Piper PA-36-375, Pawnee Brave",
-        modelId="PA36",
+        modelId="PA-36-375",
         mode=mode)
 
 
@@ -106,7 +106,7 @@ def libertyXL2(mode=1):
         cruiseSpeed=knot2mps(120),
         rangeMax=926e3,
         model="Liberty XL-2",
-        modelId="XL2",
+        modelId="XL-2",
         mode=mode)
 
 
