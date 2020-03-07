@@ -202,10 +202,10 @@ cdef class HybridAircraft():
         return self.powerEGHS()/self.massEGHS()
     
     cpdef public double massEmpty(self):
-        return self.originalAircraft.massStructure() + self.massICE() + self.massEGHS() + self.massBatteries
+        return self.originalAircraft.massStructure() + self.massICE() + self.massEGHS()
     
     cpdef public double massEGHS(self):
-        return self.massHarvester + self.massGenerator + self.massConverter + self.massMotor
+        return self.massHarvester + self.massGenerator + self.massConverter + self.massMotor + self.massBatteries
     
     cpdef public double weightEGHS(self):
         return self.massEGHS()*GRAVITY
