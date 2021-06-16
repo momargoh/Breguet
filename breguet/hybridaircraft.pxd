@@ -10,9 +10,12 @@ cdef class HybridAircraft():
     cpdef public double massGenerator
     cpdef public double efficiencyGenerator
     cpdef public double _specificPowerGenerator
-    cpdef public double massConverter
-    cpdef public double efficiencyConverter
-    cpdef public double _specificPowerConverter
+    cpdef public double massRectifier
+    cpdef public double efficiencyRectifier
+    cpdef public double _specificPowerRectifier
+    cpdef public double massInverter
+    cpdef public double efficiencyInverter
+    cpdef public double _specificPowerInverter
     cpdef public double massMotor
     cpdef public double efficiencyMotor
     cpdef public double _specificPowerMotor
@@ -22,6 +25,7 @@ cdef class HybridAircraft():
     cpdef public double efficiencyICE
     cpdef public double efficiencyExhaust
     cpdef public str modelIdPrefix
+    cpdef public void update(self, kwargs)
     #
     cdef public ICE engine
     cpdef public double massEmpty(self)
@@ -29,6 +33,8 @@ cdef class HybridAircraft():
     #
     cpdef public void rebuild(self)
     cpdef public void size_Cl(self)
+    #
+    cpdef public double efficiencyHarvestingSystem(self)
     #
     cpdef public double powerExcessClimb(self)
     cpdef public double powerClimb(self)
@@ -38,8 +44,9 @@ cdef class HybridAircraft():
     cpdef public double powerExhaust(self)
     cpdef public double powerHarvester(self)
     cpdef public double powerGenerator(self)
-    cpdef public double powerConverter(self)
-    cpdef public double powerConverterClimb(self)
+    cpdef public double powerRectifier(self)
+    cpdef public double powerInverter(self)
+    cpdef public double powerInverterClimb(self)
     cpdef public double powerMotor(self)
     cpdef public double powerMotorClimb(self)
     cpdef public double powerBatteries(self)
@@ -50,8 +57,9 @@ cdef class HybridAircraft():
     #
     cpdef public double specificPowerHarvester(self)
     cpdef public double specificPowerGenerator(self)
-    cpdef public double specificPowerConverter(self)
-    cpdef public double specificPowerConverterClimb(self)
+    cpdef public double specificPowerRectifier(self)
+    cpdef public double specificPowerInverter(self)
+    cpdef public double specificPowerInverterClimb(self)
     cpdef public double specificPowerBatteries(self)
     cpdef public double specificPowerMotor(self)
     cpdef public double specificPowerMotorClimb(self)
@@ -74,8 +82,9 @@ cdef class HybridAircraft():
     cpdef public double weightTotalSoc(self)
     #
     cpdef public double size_generator(self)
+    cpdef public double size_rectifier(self)
     cpdef public double size_batteries(self)
-    cpdef public double size_converter(self)
+    cpdef public double size_inverter(self)
     cpdef public double size_motor(self)
     cpdef public void size_EGHS(self)
     #

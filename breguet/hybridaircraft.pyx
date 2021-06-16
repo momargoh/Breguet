@@ -8,7 +8,7 @@ from tabulate import tabulate
 import scipy.optimize as opt
 
 cdef class HybridAircraft():
-    def __init__(self, Aircraft originalAircraft, double downsizingFactor, double efficiencyICE, double efficiencyExhaust, double efficiencyHarvester=1, double massHarvester=0, double specificPowerHarvester=0, double efficiencyGenerator=0, double massGenerator=0, double specificPowerGenerator=0, double efficiencyConverter=0, double massConverter=0, double specificPowerConverter=0, double efficiencyMotor=0, double massMotor=0, double specificPowerMotor=0, double efficiencyBatteries=0, double massBatteries=0, double specificPowerBatteries=0, str modelIdPrefix='HYB:'):
+    def __init__(self, Aircraft originalAircraft, double downsizingFactor, double efficiencyICE, double efficiencyExhaust, double efficiencyHarvester=1, double massHarvester=0, double specificPowerHarvester=0, double efficiencyGenerator=0, double massGenerator=0, double specificPowerGenerator=0, double efficiencyRectifier=0, double massRectifier=0, double specificPowerRectifier=0, double efficiencyInverter=0, double massInverter=0, double specificPowerInverter=0, double efficiencyMotor=0, double massMotor=0, double specificPowerMotor=0, double efficiencyBatteries=0, double massBatteries=0, double specificPowerBatteries=0, str modelIdPrefix='HYB:'):
         """Set massX or specificPowerX. If both are set, specificPowerX will be used to calculate the required massX"""
         self.originalAircraft = originalAircraft
         self.modelIdPrefix = modelIdPrefix
@@ -22,9 +22,12 @@ cdef class HybridAircraft():
         self.efficiencyGenerator = efficiencyGenerator
         self.massGenerator = massGenerator
         self._specificPowerGenerator = specificPowerGenerator
-        self.efficiencyConverter = efficiencyConverter
-        self.massConverter = massConverter
-        self._specificPowerConverter = specificPowerConverter
+        self.efficiencyRectifier = efficiencyRectifier
+        self.massRectifier = massRectifier
+        self._specificPowerRectifier = specificPowerRectifier
+        self.efficiencyInverter = efficiencyInverter
+        self.massInverter = massInverter
+        self._specificPowerInverter = specificPowerInverter
         self.efficiencyMotor = efficiencyMotor
         self.massMotor = massMotor
         self._specificPowerMotor = specificPowerMotor
@@ -40,20 +43,23 @@ cdef class HybridAircraft():
         self.fuelVolume = originalAircraft.fuelVolume * (1-downsizingFactor)
 
 
-    #-------------------------
-    # Batteries and Motor
-    #-------------------------
+    cpdef public double efficiencyHarvestingSystem(self):
+        return self.efficiencyHarvester*self.efficiencyGenerator*self.efficiencyRectifier*self.efficiencyInverter*self.efficiencyMotor
     
     cpdef public double size_generator(self):
         self.massGenerator = self.powerHarvester() / self._specificPowerGenerator
         return self.massGenerator
     
-    cpdef public double size_converter(self):
-        self.massConverter = (self.powerGenerator()+self.powerBatteries())/self._specificPowerConverter
-        return self.massConverter
+    cpdef public double size_rectifier(self):
+        self.massRectifier = self.powerGenerator() / self._specificPowerRectifier
+        return self.massRectifier
+    
+    cpdef public double size_inverter(self):
+        self.massInverter = (self.powerRectifier()+self.powerBatteries())/self._specificPowerInverter
+        return self.massInverter
     
     cpdef public double size_motor(self):
-        self.massMotor = self.powerConverterClimb()/self._specificPowerMotor
+        self.massMotor = self.powerInverterClimb()/self._specificPowerMotor
         return self.massMotor
 
     """
@@ -77,20 +83,51 @@ cdef class HybridAircraft():
     
     cpdef double size_batteries(self):
         cdef double denominator = self.efficiencyBatteries*self._specificPowerBatteries*(1/self.VTASClimb/GRAVITY-1/self._specificPowerMotor)
-        cdef double numerator = self.payload + self.massFuelSoc() + self.massStructure() + self.massICE() + self.massHarvester + self.massGenerator + self.massConverter + self.powerConverter()/self._specificPowerMotor
+        cdef double numerator = self.payload + self.massFuelSoc() + self.massStructure() + self.massICE() + self.massHarvester + self.massGenerator + self.massRectifier + self.massInverter + self.powerInverter()/self._specificPowerMotor
         self.massBatteries = numerator/denominator
         return self.massBatteries
     
     cpdef public void size_EGHS(self):
         if self._specificPowerGenerator:
             self.size_generator()
+        if self._specificPowerRectifier:
+            self.size_rectifier()
         if self._specificPowerBatteries:
             self.size_batteries()
-        if self._specificPowerConverter:
-            self.size_converter()
+        if self._specificPowerInverter:
+            self.size_inverter()
         if self._specificPowerMotor:
             self.size_motor()
-    
+
+            
+    cpdef public void update(self, kwargs):
+        """Update (multiple) class variables from a dictionary of keyword arguments.
+
+Parameters
+-----------
+kwargs : dict
+    Dictionary of attributes and their updated value."""
+        cdef str key
+        cdef list key_split
+        for key, value in kwargs.items():
+            if "." in key:
+                key_split = key.split(".", 1)
+                key_attr = getattr(self, key_split[0])
+                key_attr.update({key_split[1]: value})
+            elif '[' in key and ']' in key:
+                key = key.replace('[',']')
+                key_split = key.split(']')
+                key_split.remove('')
+                if len(key_split) > 2:
+                    key_attr = getattr(self, key_split[0])[int(key_split[1])]
+                    key_attr.update({key_split[2]: value})
+                else:
+                    key_attr = getattr(self, key_split[0])
+                    key_attr[int(key_split[1])] = value
+            else:
+                setattr(self, key, value)
+
+                
     cpdef public void rebuild(self):
         "void: 'Rebuilds' the hybrid aircraft: should be called if downsizingFactor or originalAircraft.engine is changed."
         self.engine.massDry = self.originalAircraft.engine.massDry*(1-self.downsizingFactor)
@@ -135,21 +172,25 @@ cdef class HybridAircraft():
         "float: Power provided by generator [W]."
         return self.efficiencyGenerator * self.powerHarvester()
     
-    cpdef public double powerConverter(self):
-        "float: Power provided by Converter [W]."
-        return self.efficiencyConverter * self.powerGenerator()
+    cpdef public double powerRectifier(self):
+        "float: Power provided by rectifier [W]."
+        return self.efficiencyRectifier * self.powerGenerator()
     
-    cpdef public double powerConverterClimb(self):
-        "float: Power provided by Converter [W]."
-        return self.efficiencyConverter * (self.powerGenerator() + self.powerBatteries())
+    cpdef public double powerInverter(self):
+        "float: Power provided by Inverter [W]."
+        return self.efficiencyInverter * self.powerRectifier()
+    
+    cpdef public double powerInverterClimb(self):
+        "float: Power provided by Inverter [W]."
+        return self.efficiencyInverter * (self.powerRectifier() + self.powerBatteries())
     
     cpdef public double powerMotor(self):
         "float: Cruise power provided by motor [W]."
-        return self.efficiencyMotor * self.powerConverter()
+        return self.efficiencyMotor * self.powerInverter()
     
     cpdef public double powerMotorClimb(self):
         "float: Maximum power provided by batteries (including excess for climb) [W]."
-        return self.efficiencyMotor * self.powerConverterClimb()
+        return self.efficiencyMotor * self.powerInverterClimb()
     
     cpdef public double powerBatteries(self):
         "float: Power provided by batteries [W]."
@@ -177,17 +218,21 @@ cdef class HybridAircraft():
         "float: Specific power of generator [W/kg]."
         return self.powerGenerator()/self.massGenerator
     
+    cpdef public double specificPowerRectifier(self):
+        "float: Specific power of rectifier [W/kg]."
+        return self.powerRectifier()/self.massRectifier
+    
     cpdef public double specificPowerBatteries(self):
         "float: Specific power of batteries [W/kg]."
         return self.powerBatteries()/self.massBatteries
     
-    cpdef public double specificPowerConverter(self):
+    cpdef public double specificPowerInverter(self):
         "float: Specific power of converter in cruise [W/kg]."
-        return self.powerConverter()/self.massConverter
+        return self.powerInverter()/self.massInverter
     
-    cpdef public double specificPowerConverterClimb(self):
+    cpdef public double specificPowerInverterClimb(self):
         "float: Specific power of converter in climb [W/kg]."
-        return self.powerConverterClimb()/self.massConverter
+        return self.powerInverterClimb()/self.massInverter
     
     cpdef public double specificPowerMotor(self):
         "float: Specific power of motor in cruise [W/kg]."
@@ -205,7 +250,7 @@ cdef class HybridAircraft():
         return self.originalAircraft.massStructure() + self.massICE() + self.massEGHS()
     
     cpdef public double massEGHS(self):
-        return self.massHarvester + self.massGenerator + self.massConverter + self.massMotor + self.massBatteries
+        return self.massHarvester + self.massGenerator + self.massRectifier + self.massInverter + self.massMotor + self.massBatteries
     
     cpdef public double weightEGHS(self):
         return self.massEGHS()*GRAVITY
@@ -290,7 +335,7 @@ cdef class HybridAircraft():
     # Flight Mode 1
     #-------------------------
     cpdef double downsizingFactorMax_1(self):
-        return 1 - 0.75/(1+self.efficiencyExhaust/self.efficiencyICE*self.efficiencyHarvester*self.efficiencyGenerator*self.efficiencyConverter*self.efficiencyMotor)
+        return 1 - 0.75/(1+self.efficiencyExhaust/self.efficiencyICE*self.efficiencyHarvester*self.efficiencyGenerator*self.efficiencyRectifier*self.efficiencyInverter*self.efficiencyMotor)
     """
         cdef double qS = 0.5*self.rhoSoc*self.VTAS**2*self.wing.area
         cdef double W1 = self.originalAircraft.weightTotalSoc() + self.weightEGHS() + self.weightMotor()
