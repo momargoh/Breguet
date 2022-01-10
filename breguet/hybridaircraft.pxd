@@ -24,6 +24,13 @@ cdef class HybridAircraft():
     cpdef public double _specificPowerBatteries
     cpdef public double efficiencyICE
     cpdef public double efficiencyExhaust
+    # Volume variables
+    cpdef public double densityGenerator
+    cpdef public double densityMotor
+    cpdef public double densityRectifier
+    cpdef public double densityInverter
+    cpdef public double densityBatteries
+    #
     cpdef public str modelIdPrefix
     cpdef public void update(self, kwargs)
     #
@@ -54,6 +61,14 @@ cdef class HybridAircraft():
     cpdef public double powerAvailable(self)
     cpdef public double powerRequired(self)
     cpdef public double Cp(self)
+    #
+    cpdef public double volumeEGHS(self)
+    cpdef public double volumeHarvester(self)
+    cpdef public double volumeGenerator(self)
+    cpdef public double volumeRectifier(self)
+    cpdef public double volumeInverter(self)
+    cpdef public double volumeBatteries(self)
+    cpdef public double volumeMotor(self)
     #
     cpdef public double specificPowerHarvester(self)
     cpdef public double specificPowerGenerator(self)
@@ -111,3 +126,12 @@ cdef class HybridAircraft():
     cpdef double massFuelBurnt(self, double rangeX)
     cpdef double volumeFuelBurnt(self, double rangeX)
     cpdef double massTotalEoc(self, double rangeX)
+    #
+    cpdef double downsizingFactorMaxSeries(self)
+    cpdef double rangeXSeries(self, double massFuelBurnt)
+    cpdef double massFuelBurntSeries(self, double rangeX)
+    cpdef double volumeFuelBurntSeries(self, double rangeX)
+    cpdef double massTotalEocSeries(self, double rangeX)
+    cpdef double shaftToICERatio(self)
+    cpdef double shaftToICERatioSeries(self)
+

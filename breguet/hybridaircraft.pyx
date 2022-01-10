@@ -8,7 +8,7 @@ from tabulate import tabulate
 import scipy.optimize as opt
 
 cdef class HybridAircraft():
-    def __init__(self, Aircraft originalAircraft, double downsizingFactor, double efficiencyICE, double efficiencyExhaust, double efficiencyHarvester=1, double massHarvester=0, double specificPowerHarvester=0, double efficiencyGenerator=0, double massGenerator=0, double specificPowerGenerator=0, double efficiencyRectifier=0, double massRectifier=0, double specificPowerRectifier=0, double efficiencyInverter=0, double massInverter=0, double specificPowerInverter=0, double efficiencyMotor=0, double massMotor=0, double specificPowerMotor=0, double efficiencyBatteries=0, double massBatteries=0, double specificPowerBatteries=0, str modelIdPrefix='HYB:'):
+    def __init__(self, Aircraft originalAircraft, double downsizingFactor, double efficiencyICE, double efficiencyExhaust, double efficiencyHarvester=1, double massHarvester=0, double specificPowerHarvester=0, double efficiencyGenerator=0, double massGenerator=0, double specificPowerGenerator=0, double efficiencyRectifier=0, double massRectifier=0, double specificPowerRectifier=0, double efficiencyInverter=0, double massInverter=0, double specificPowerInverter=0, double efficiencyMotor=0, double massMotor=0, double specificPowerMotor=0, double efficiencyBatteries=0, double massBatteries=0, double specificPowerBatteries=0, double densityGenerator=0, double densityMotor=0, double densityBatteries=0, double densityRectifier=0, double densityInverter=0, str modelIdPrefix='HYB:'):
         """Set massX or specificPowerX. If both are set, specificPowerX will be used to calculate the required massX"""
         self.originalAircraft = originalAircraft
         self.modelIdPrefix = modelIdPrefix
@@ -34,6 +34,12 @@ cdef class HybridAircraft():
         self.efficiencyBatteries = efficiencyBatteries
         self.massBatteries = massBatteries
         self._specificPowerBatteries = specificPowerBatteries
+        #
+        self.densityGenerator = densityGenerator
+        self.densityMotor = densityMotor
+        self.densityRectifier = densityRectifier
+        self.densityInverter = densityInverter
+        self.densityBatteries = densityBatteries
         #
         cdef ICE eng = originalAircraft.engine
         cdef double massDry = eng.massDry*(1-downsizingFactor)
@@ -288,6 +294,25 @@ kwargs : dict
     cpdef public double weightTotalSoc(self):
         return self.massTotalSoc()*GRAVITY
 
+    #-------------------------
+    # Volumes
+    #-------------------------
+    cpdef public double volumeEGHS(self):
+        return self.volumeHarvester() + self.volumeGenerator() + self.volumeRectifier() + self.volumeInverter() + self.volumeMotor() + self.volumeBatteries()
+    cpdef public double volumeHarvester(self):
+        return 0
+    cpdef public double volumeGenerator(self):
+        return self.massGenerator/self.densityGenerator
+    cpdef public double volumeRectifier(self):
+        return self.massRectifier/self.densityRectifier
+    cpdef public double volumeInverter(self):
+        return self.massInverter/self.densityInverter
+    cpdef public double volumeBatteries(self):
+        return self.massBatteries/self.densityBatteries
+    cpdef public double volumeMotor(self):
+        return self.massMotor/self.densityMotor
+    
+
             
     #-------------------------
     # Flight Mode 3
@@ -381,6 +406,9 @@ kwargs : dict
     #-------------------------
     # Auto Mode
     #-------------------------
+    cpdef double shaftToICERatio(self):
+        return 1+self.efficiencyExhaust/self.efficiencyICE*self.efficiencyHarvester*self.efficiencyGenerator*self.efficiencyRectifier*self.efficiencyInverter*self.efficiencyMotor
+    
     cpdef double downsizingFactorMax(self):
         if self.mode == 1:
             return self.downsizingFactorMax_1()
@@ -432,6 +460,43 @@ kwargs : dict
         else:
             raise ValueError("mode must be 1,2 or 3. Given: {}".format(self.mode))
 
+
+    #-------------------------
+    # Series topology
+    #-------------------------
+    cpdef double shaftToICERatioSeries(self):
+        return self.efficiencyInverter*self.efficiencyMotor*(self.efficiencyGenerator*self.efficiencyRectifier+self.efficiencyExhaust/self.efficiencyICE*self.efficiencyHarvester*self.efficiencyGenerator*self.efficiencyRectifier)
+
+    cpdef double downsizingFactorMaxSeries(self):
+        return 1 - 0.75/self.shaftToICERatioSeries()
+        
+    cpdef double rangeXSeries(self, double massFuelBurnt):
+        cdef double a = 0.5*self.rhoSoc*self.VTAS**2*self.wing.area*sqrt(self.Cd0/self.wing.k())
+        cdef double Wsoc = self.weightTotalSocSeries() # start of cruise
+        cdef double Wfb = massFuelBurnt*GRAVITY # end of cruise
+        cdef double numerator = a * Wfb
+        cdef double denominator = a**2 + Wsoc*(Wsoc-Wfb)
+        return self.efficiencyPropulsive/self.Cp()/sqrt(self.Cd0*self.wing.k())*atan(numerator/denominator)
+    
+    cpdef double massFuelBurntSeries(self, double rangeX):
+        cdef double a = 0.5*self.rhoSoc*self.VTAS**2*self.wing.area*sqrt(self.Cd0/self.wing.k())
+        cdef double Wsoc = self.massTotalSocSeries()*GRAVITY # start of cruise
+        cdef double numerator = a**2 + Wsoc**2
+        cdef double tan_ = tan(rangeX*self.Cp()*sqrt(self.Cd0*self.wing.k())/self.efficiencyPropulsive)
+        cdef double denominator = a/tan_ + Wsoc
+        return numerator/denominator/GRAVITY        
+    
+    cpdef double volumeFuelBurntSeries(self, double rangeX):
+        return self.massFuelBurntSeries(rangeX)/self.engine.fuel.density
+
+    cpdef double massTotalEocSeries(self, double rangeX):
+        cdef double dm = self.massFuelBurntSeries(rangeX)
+        cdef double m1 = self.massTotalSocSeries()
+        return m1 - dm
+    
+    #-------------------------
+    # Python stuff
+    #-------------------------
         
     def __str__(self):
         return self.model
