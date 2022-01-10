@@ -2,7 +2,7 @@
 
 
 ```
-conda install numpy scipy Cython tabulate
+conda install --file requirements.txt
 ```
 
 A Python package for analysis of aircraft performance (including hybrid aircraft).
