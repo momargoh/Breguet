@@ -8,6 +8,7 @@ from tabulate import tabulate
 import scipy.optimize as opt
 
 cdef class HybridAircraft():
+
     def __init__(self, Aircraft originalAircraft, double downsizingFactor, double efficiencyICE, double efficiencyExhaust, double efficiencyHarvester=1, double massHarvester=0, double specificPowerHarvester=0, double efficiencyGenerator=0, double massGenerator=0, double specificPowerGenerator=0, double efficiencyRectifier=0, double massRectifier=0, double specificPowerRectifier=0, double efficiencyInverter=0, double massInverter=0, double specificPowerInverter=0, double efficiencyMotor=0, double massMotor=0, double specificPowerMotor=0, double efficiencyBatteries=0, double massBatteries=0, double specificPowerBatteries=0, double densityGenerator=0, double densityMotor=0, double densityBatteries=0, double densityRectifier=0, double densityInverter=0, str modelIdPrefix='HYB:'):
         """Set massX or specificPowerX. If both are set, specificPowerX will be used to calculate the required massX"""
         self.originalAircraft = originalAircraft
@@ -35,11 +36,11 @@ cdef class HybridAircraft():
         self.massBatteries = massBatteries
         self._specificPowerBatteries = specificPowerBatteries
         #
-        self.densityGenerator = densityGenerator
-        self.densityMotor = densityMotor
-        self.densityRectifier = densityRectifier
-        self.densityInverter = densityInverter
-        self.densityBatteries = densityBatteries
+        self.specificVolumeGenerator = densityGenerator
+        self.specificVolumeMotor = densityMotor
+        self.specificVolumeRectifier = densityRectifier
+        self.specificVolumeInverter = densityInverter
+        self.specificVolumeBatteries = densityBatteries
         #
         cdef ICE eng = originalAircraft.engine
         cdef double massDry = eng.massDry*(1-downsizingFactor)
@@ -299,18 +300,19 @@ kwargs : dict
     #-------------------------
     cpdef public double volumeEGHS(self):
         return self.volumeHarvester() + self.volumeGenerator() + self.volumeRectifier() + self.volumeInverter() + self.volumeMotor() + self.volumeBatteries()
+
     cpdef public double volumeHarvester(self):
         return 0
     cpdef public double volumeGenerator(self):
-        return self.massGenerator/self.densityGenerator
+        return self.massGenerator*self.specificVolumeGenerator
     cpdef public double volumeRectifier(self):
-        return self.massRectifier/self.densityRectifier
+        return self.massRectifier*self.specificVolumeRectifier
     cpdef public double volumeInverter(self):
-        return self.massInverter/self.densityInverter
+        return self.massInverter*self.specificVolumeInverter
     cpdef public double volumeBatteries(self):
-        return self.massBatteries/self.densityBatteries
+        return self.massBatteries*self.specificVolumeBatteries
     cpdef public double volumeMotor(self):
-        return self.massMotor/self.densityMotor
+        return self.massMotor*self.specificVolumeMotor
     
 
             

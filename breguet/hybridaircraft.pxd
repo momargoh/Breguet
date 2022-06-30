@@ -25,11 +25,11 @@ cdef class HybridAircraft():
     cpdef public double efficiencyICE
     cpdef public double efficiencyExhaust
     # Volume variables
-    cpdef public double densityGenerator
-    cpdef public double densityMotor
-    cpdef public double densityRectifier
-    cpdef public double densityInverter
-    cpdef public double densityBatteries
+    cpdef public double specificVolumeGenerator
+    cpdef public double specificVolumeMotor
+    cpdef public double specificVolumeRectifier
+    cpdef public double specificVolumeInverter
+    cpdef public double specificVolumeBatteries
     #
     cpdef public str modelIdPrefix
     cpdef public void update(self, kwargs)
